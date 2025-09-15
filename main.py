@@ -1,6 +1,6 @@
 import threading
 from Server import server   # твой server.py
-from Client import MainWindow
+from Client.GUI import connection_window
 
 
 def start_server():
@@ -14,5 +14,5 @@ if __name__ == "__main__":
     server_thread.start()
 
     # Запускаем клиентское окно
-    app = MainWindow.MainWindow()
+    app = connection_window.ConnectionWindow()
     app.mainloop()

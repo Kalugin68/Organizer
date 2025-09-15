@@ -1,9 +1,9 @@
 import customtkinter as ctk
-from .client import Client
-from .User import AuthorizationWindow
+from Client.client import Client
+from Client.GUI import authorization_window
 
 
-class MainWindow(ctk.CTk):
+class ConnectionWindow(ctk.CTk):
     def __init__(self):
         """Главное окно для подключения к серверу"""
         super().__init__()
@@ -18,8 +18,7 @@ class MainWindow(ctk.CTk):
         # Поля ввода для IP-адреса и порта
         self.ip_entry = ctk.CTkEntry(self, placeholder_text="Введите IP-адрес сервера или имя хоста", width=260)
         self.ip_entry.pack(pady=10)
-
-
+        self.ip_entry.bind('<Return>', lambda event: self.connect_to_server())
         # Кнопка подключения
         self.connect_button = ctk.CTkButton(self, text="Подключиться", command=self.connect_to_server, width=170)
         self.connect_button.pack(pady=20)
@@ -47,6 +46,6 @@ class MainWindow(ctk.CTk):
     def open_auth_window(self):
         """Открытие окна авторизации"""
         self.withdraw()  # Скрываем главное окно
-        auth_window = AuthorizationWindow.AuthorizationWindow(self.my_client, self)
+        auth_window = authorization_window.AuthorizationWindow(self.my_client, self)
         auth_window.mainloop()  # Запускаем цикл событий для окна авторизации
 

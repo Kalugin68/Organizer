@@ -1,6 +1,6 @@
 import customtkinter as ctk
-from . import PasswordHasher
-
+from Client.User import password_hasher
+from Client.Responses.main_responses import *
 
 # ====== Окно регистрации ======
 class RegisterWindow(ctk.CTkToplevel):
@@ -75,20 +75,14 @@ class RegisterWindow(ctk.CTkToplevel):
             self.error_label.configure(text="Введите логин и пароль!", text_color="red")
             return
 
-        # Проверка совпадения паролей
-        if self.get_password() == self.get_correct_password():
-
-            if self.client.connect():
-                # Хешируем пароль перед отправкой
-                hashed_password = PasswordHasher.PasswordHasher.hash_password(self.get_password())
-                # Отправляем данные на сервер
-                response = self.client.send_data(f"REGISTER;{self.get_username()};{hashed_password}")
-
-                if response == "OK":
-                    self.error_label.configure(text="Профиль создан!", text_color="green")
-                    self.destroy()  # Закрываем окно регистрации
-                else:
-                    self.error_label.configure(text="Данный аккаунт уже существует!", text_color="red")
+        # Вызов функции, которая отправляет запрос на сервер
+        if send_new_profile(self.client, self.get_username(),
+                            self.get_password(), self.get_correct_password()) == "OK":
+            self.error_label.configure(text="Профиль создан!", text_color="green")
+            self.destroy()  # Закрываем окно регистрации
+        elif send_new_profile(self.client, self.get_username(),
+                            self.get_password(), self.get_correct_password()) == "PROFILE EXISTS":
+            self.error_label.configure(text="Данный аккаунт уже существует!", text_color="red")
         else:
             self.error_label.configure(text="Пароли не совпадают!", text_color="red")
 

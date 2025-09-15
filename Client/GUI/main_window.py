@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from PIL import Image, ImageDraw
-from Client.OrganizerApp import TasksPage, NotesPage, SettingsPage, ContactPage
+from Client.GUI.MainPages import contact_page, notes_page, settings_page, tasks_page
+from Client.Responses.main_responses import *
 import os
 
 
@@ -43,7 +44,7 @@ class OrganizerWindow(ctk.CTkToplevel):
         self.nav_frame.pack(side="left", fill="y")
 
         # === Попытка загрузить пользовательский аватар ===
-        custom_path = f"Client/Images/Avatars/user_{self.get_user_id()}.jpg"
+        custom_path = f"Client/Images/Avatars/user_{get_user_id(self.client, self.username, self.user_id)}.jpg"
         if os.path.exists(custom_path):
             self.image_author = Image.open(custom_path)
         else:
@@ -76,15 +77,15 @@ class OrganizerWindow(ctk.CTkToplevel):
         self.content_frame.pack(side="right", fill="both", expand=True)
 
         # === Получение ID пользователя ===
-        self.user_id = self.get_user_id()
+        self.user_id = get_user_id(self.client, self.username, self.user_id)
 
         # === Создание страниц ===
         self.frames = {
-            "tasks": TasksPage.TasksPage(self.content_frame, self.client, self.user_id).create_tasks_page(),
-            "notes": NotesPage.NotePage(self.content_frame, self.client, self.user_id).create_notes_page(),
-            "contacts": ContactPage.ContactPage(self.content_frame, self.client, self.user_id).create_contacts_page(),
-            "settings": SettingsPage.SettingsPage(self.content_frame, self.client, self.user_id,
-                                                  self.username, self, self.authorization).create_settings_page()
+            "tasks": tasks_page.TasksPage(self.content_frame, self.client, self.user_id).create_tasks_page(),
+            "notes": notes_page.NotePage(self.content_frame, self.client, self.user_id).create_notes_page(),
+            "contacts": contact_page.ContactPage(self.content_frame, self.client, self.user_id).create_contacts_page(),
+            "settings": settings_page.SettingsPage(self.content_frame, self.client, self.user_id,
+                                                   self.username, self, self.authorization).create_settings_page()
         }
 
         self.after(200, self.show_main_window)  # Даем время на загрузку перед показом окна
@@ -107,19 +108,6 @@ class OrganizerWindow(ctk.CTkToplevel):
             frame.pack_forget()  # Скрываем все страницы
 
         self.frames[name].pack(fill="both", expand=True)  # Показываем нужную страницу
-
-    def get_user_id(self):
-        """Запрашивает user_id у сервера по username"""
-        if self.client.connect():
-            response = self.client.send_data(f"GET_USER_ID;{self.username}")
-            if response:
-                self.user_id = response
-                print(f"[INFO] Получен user_id: {self.user_id}")
-            else:
-                print("[ERROR] Не удалось получить user_id")
-                self.user_id = None
-
-        return self.user_id
 
     def round_image(self, image_main, radius):
         """Закругляет углы изображения"""
