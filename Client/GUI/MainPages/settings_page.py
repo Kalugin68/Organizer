@@ -3,6 +3,7 @@ from tkinter import messagebox
 import os
 from tkinter import filedialog
 from PIL import Image
+from Client.Responses.main_responses import update_password, get_stats
 
 
 class SettingsPage:
@@ -19,27 +20,27 @@ class SettingsPage:
         frame = ctk.CTkFrame(self.parent_frame)
         frame.pack(fill="both", expand=True, padx=40, pady=30)
 
-        # 🔹 Заголовок
+        # Заголовок
         ctk.CTkLabel(frame, text="Настройки", font=("Arial", 20, "bold")).pack(pady=(0, 20))
 
-        # 🔹 Фрейм с информацией о пользователе
+        # Фрейм с информацией о пользователе
         info_frame = ctk.CTkFrame(frame, corner_radius=10)
         info_frame.pack(fill="x", pady=10)
 
         ctk.CTkLabel(info_frame, text=f"Логин: {self.username}", font=("Arial", 14)).pack(pady=10)
 
-        # 🔹 Фрейм со статистикой активности
+        # Фрейм со статистикой активности
         stats_frame = ctk.CTkFrame(frame, corner_radius=10)
         stats_frame.pack(fill="x", pady=10)
 
         # Загрузка статуса активности
-        stats = self.load_stats()
+        stats = get_stats(self.client, self.user_id)
         ctk.CTkLabel(stats_frame, text="Статистика активности", font=("Arial", 14, "bold")).pack(pady=(10, 5))
         ctk.CTkLabel(stats_frame, text=f"Задач создано: {stats.get('tasks')}", font=("Arial", 12)).pack()
         ctk.CTkLabel(stats_frame, text=f"Заметок: {stats.get('notes')}", font=("Arial", 12)).pack()
         ctk.CTkLabel(stats_frame, text=f"Контактов: {stats.get('contacts')}", font=("Arial", 12)).pack()
 
-        # 🔹 Фрейм с настройками
+        # Фрейм с настройками
         settings_frame = ctk.CTkFrame(frame, corner_radius=10)
         settings_frame.pack(fill="x", pady=10)
 
@@ -48,7 +49,7 @@ class SettingsPage:
         change_pass_btn = ctk.CTkButton(settings_frame, text="Сменить пароль", command=self.change_password)
         change_pass_btn.pack(pady=5)
 
-        # 🔹 Кнопка загрузки аватара
+        # Кнопка загрузки аватара
         upload_avatar_btn = ctk.CTkButton(settings_frame, text="Загрузить аватар", command=self.upload_avatar)
         upload_avatar_btn.pack(pady=5)
 
@@ -57,7 +58,7 @@ class SettingsPage:
         theme_select.set("Светлая")  # Значение по умолчанию
         theme_select.pack(pady=5)
 
-        # 🔹 Кнопка выхода
+        # Кнопка выхода
         logout_button = ctk.CTkButton(frame, text="Выйти из аккаунта", fg_color="red", command=self.logout)
         logout_button.pack(pady=20)
 
@@ -93,55 +94,33 @@ class SettingsPage:
         confirm_pass.pack(padx=20, fill="x")
 
         def submit():
-            old = old_pass.get()
-            new = new_pass.get()
-            confirm = confirm_pass.get()
+            old_password = old_pass.get()
+            new_password = new_pass.get()
+            confirm_password = confirm_pass.get()
 
-            if not old or not new or not confirm:
+            if not old_password or not new_password or not confirm_password:
                 messagebox.showwarning("Ошибка", "Пожалуйста, заполните все поля.")
                 return
 
-            if new != confirm:
+            if new_password != confirm_password:
                 messagebox.showerror("Ошибка", "Новые пароли не совпадают.")
                 return
 
-            # Отправляем на сервер
-            message = f"CHANGE_PASSWORD;{self.user_id};{old};{new}"
-            if self.client.connect():
-                response = self.client.send_data(message)
-
-                if response == "SUCCESS":
-                    messagebox.showinfo("Успех", "Пароль успешно изменён.")
-                    window.destroy()
-                elif response == "INVALID_PASSWORD":
-                    messagebox.showerror("Ошибка", "Неверный текущий пароль.")
-                else:
-                    messagebox.showerror("Ошибка", "Не удалось сменить пароль. Попробуйте позже.")
+            # Отправка данных на сервер
+            if update_password(self.client, self.user_id, old_password, new_password, confirm_password) == "OK":
+                messagebox.showinfo("Успех", "Пароль успешно изменён.")
+                window.destroy()
+            elif update_password(self.client, self.user_id, old_password,
+                                 new_password, confirm_password) == "INVALID_PASSWORD":
+                messagebox.showerror("Ошибка", "Неверный текущий пароль.")
+            else:
+                messagebox.showerror("Ошибка", "Не удалось сменить пароль. Попробуйте позже.")
 
         ctk.CTkButton(window, text="Сменить пароль", command=submit).pack(pady=20)
 
-    def load_stats(self):
-        """Запрашивает статистику у сервера"""
-        if self.client.connect():
-            try:
-                response = self.client.send_data(f"GET_STATS;{self.user_id}")
-
-                if response == "NO_DATA":
-                    return {"tasks": 0, "notes": 0, "contacts": 0}
-                elif response == "ERROR":
-                    return {"tasks": "-", "notes": "-", "contacts": "-"}
-
-                # Преобразуем строку вида tasks:12;notes:5;contacts:3
-                parts = response.split(";")
-                stats = {part.split(":")[0]: int(part.split(":")[1]) for part in parts}
-                return stats
-
-            except Exception as e:
-                print(f"[CLIENT] Ошибка загрузки статистики: {e}")
-                return {"tasks": "-", "notes": "-", "contacts": "-"}
-
     def change_theme(self, theme_name):
         """Смена темы оформления"""
+
         if theme_name == "Темная":
             ctk.set_appearance_mode("dark")
         else:
@@ -149,11 +128,13 @@ class SettingsPage:
 
     def logout(self):
         """Функция выхода из аккаунта"""
+
         self.main_window.destroy()  # Закрываем главное окно
         self.authorization.deiconify()
 
     def upload_avatar(self):
         """Открывает диалог выбора изображения и обновляет аватар"""
+
         file_path = filedialog.askopenfilename(
             filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.bmp")]
         )

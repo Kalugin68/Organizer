@@ -15,7 +15,7 @@ class Server:
         self.server_socket.listen(5)
         print(f"[SERVER] Запущен на {self.host}:{self.port}")
 
-        self.db_user = UserData.UserDatabase()  # Создаём объект БД без лишних параметров
+        self.db_user = UserData.UserDatabase()  # Создаём объект БД
         self.db_tasks = TasksData.TasksDatabase()
         self.db_notes = NotesData.NotesDatabase()
         self.db_contacts = ContactsData.ContactsDatabase()

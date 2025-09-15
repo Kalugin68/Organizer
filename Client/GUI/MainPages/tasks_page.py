@@ -1,5 +1,6 @@
 import customtkinter as ctk
 import re
+from Client.Responses.tasks_responses import *
 
 
 class TasksPage:
@@ -68,66 +69,47 @@ class TasksPage:
     def save_tasks_to_db(self):
         """Сохраняет все задачи пользователя на сервере"""
 
-        if self.client.connect():
-            # Удаляем все задачи пользователя перед сохранением новых
-            response = self.client.send_data(f"DELETE_TASKS_FROM_USER_ID;{self.user_id}")
-
-            if response == "OK":
-                print("[INFO] Задачи удалены")
-
-        if not self.tasks:  # Проверяем, есть ли вообще задачи для сохранения
-            self.error_label.configure(text="Нет задач для сохранения!", text_color="red")
-            return
+        # Удаляем данные с сервера, чтобы их перезаписать
+        if delete_tasks(self.client, self.user_id) == "OK":
+            if not self.task_texts:  # проверяем словарь
+                self.error_label.configure(text="Нет задач для сохранения!", text_color="red")
+                return
 
         # Проверяем, совпадает ли количество задач и статусов
-        if len(self.tasks) != len(self.task_status):
+        if len(self.task_texts) != len(self.task_status):
             self.error_label.configure(text="Ошибка: несоответствие задач и статусов!", text_color="red")
             print("[ERROR] Количество задач и статусов не совпадает!")
             return
 
-        all_success = True  # Флаг успешного сохранения всех задач
-
-        for task, task_status_var in zip(self.tasks, self.task_status.values()):
-            task_text = task  # Получаем текст задачи
+        for task_label, task_status_var in self.task_status.items():
+            task_text = self.task_texts[task_label]  # Получаем текст задачи
 
             # Получаем текущий статус задачи
             task_status_text = task_status_var.get() if isinstance(task_status_var, ctk.StringVar) else task_status_var
 
-            if self.client.connect():
-                print(f"[INFO] Отправка задачи: '{task_text}', статус: '{task_status_text}'")
-
-                # Отправляем данные на сервер
-                response = self.client.send_data(f"ADD_TASK;{self.user_id};{task_text};{task_status_text}")
-
-                if response != "OK":
-                    all_success = False  # Если хоть одна задача не сохранилась, флаг изменится
-
-        # Выводим сообщение об успехе или ошибке
-        if all_success:
-            self.error_label.configure(text="Все задачи успешно сохранены!", text_color="green")
-        else:
-            self.error_label.configure(text="Ошибка при сохранении некоторых задач!", text_color="red")
+            # Отправляем задачи на сервер
+            if save_tasks(self.client, self.user_id, task_text, task_status_text) == "OK":
+                self.error_label.configure(text="Все задачи успешно сохранены!", text_color="green")
+            else:
+                self.error_label.configure(text="Ошибка при сохранении некоторых задач!", text_color="red")
 
     def get_tasks_from_server(self):
         """Получает список задач с сервера и отображает их"""
-        if self.client.connect():
-            # Отправляем запрос на сервер
-            task_data = self.client.send_data(f"GET_TASKS;{self.user_id}")
 
-            if task_data != "ERROR" and task_data != "NO_TASKS":
-                tasks = task_data.split("\n")  # Разделяем список задач
-                for task_info in tasks:
-                    if task_info.strip():  # Проверяем, что строка не пустая
-                        task_parts = task_info.split("|")
-                        if len(task_parts) == 2:  # Ожидаем формат "текст|статус"
-                            task_text, task_status = task_parts
-                            self.add_task_to_ui(task_text, task_status)  # Добавляем задачу в UI
-                        else:
-                            print(f"[ERROR] Неверный формат задачи: {task_info}")
-            elif task_data == "NO_TASKS":
-                print("[INFO] У пользователя нет задач.")
-            else:
-                print("[ERROR] Не удалось получить задачи.")
+        # Получение задач с сервера
+        tasks = get_tasks(self.client, self.user_id)
+
+        if tasks == "NO_TASKS":
+            print("[INFO] У пользователя нет задач.")
+        else:
+            for task_info in tasks:
+                if task_info.strip():  # Проверяем, что строка не пустая
+                    task_parts = task_info.split("|")
+                    if len(task_parts) == 2:  # Ожидаем формат "текст|статус"
+                        task_text, task_status = task_parts
+                        self.add_task_to_ui(task_text, task_status)  # Добавляем задачу в UI
+                    else:
+                        print(f"[ERROR] Неверный формат задачи: {task_info}")
 
     def add_task_to_ui(self, task_text, task_status):
         """Добавляет задачу в пользовательский интерфейс"""
@@ -138,7 +120,7 @@ class TasksPage:
         task_label = ctk.CTkLabel(task_frame, text=task_text, anchor="w", font=("Arial", 14, "normal"))
         task_label.pack(side="left", padx=5, fill="x", expand=True)
 
-        # 🔹 Сохраняем оригинальный текст в словаре для дальнейшего использования
+        # Сохраняем оригинальный текст в словаре для дальнейшего использования
         self.task_texts[task_label] = task_text
         self.tasks.append(task_text)  # Добавляем задачу в общий список задач
 
@@ -180,7 +162,7 @@ class TasksPage:
             task_label = ctk.CTkLabel(task_frame, text=task_text, anchor="w", font=("Arial", 14, "normal"))
             task_label.pack(side="left", padx=5, fill="x", expand=True)
 
-            # 🔹 Сохраняем оригинальный текст задачи в словарь
+            # Сохраняем оригинальный текст задачи в словарь
             self.task_texts[task_label] = task_text
             self.tasks.append(task_text)
 
@@ -268,7 +250,7 @@ class TasksPage:
         # Обновляем состояние задачи в словаре
         self.task_status[task_label] = status_var
 
-        # 🔹 Получаем оригинальный текст задачи
+        # Получаем оригинальный текст задачи
         task_text = self.task_texts.get(task_label, task_label.cget("text"))
 
         # Обновляем отображение задачи в зависимости от статуса
